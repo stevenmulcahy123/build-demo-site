@@ -91,7 +91,7 @@ const html = `<!DOCTYPE html>
     <h1>Build.io Node Demo App</h1>
     <p>
       If you can see this page, your Node.js deployment pipeline is working.
-      This app is built from a Git repository using a Node buildpack.
+      This app is built from a Git repository using a Node buildpack.<br />
       Great job Steven! 👍
     </p>
 
