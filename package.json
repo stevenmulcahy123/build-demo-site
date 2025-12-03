@@ -1,0 +1,12 @@
+{
+  "name": "buildio-node-demo",
+  "version": "1.0.0",
+  "description": "Simple Node demo app for Build.io deployment walkthrough",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
