@@ -99,7 +99,7 @@ const html = `<!DOCTYPE html>
       <div class="dot"></div>
       <div>
         <strong>Environment:</strong> <span>Production</span><br />
-        <small>Last deployment: <span id="deploy-time">${new Date().toLocaleString()}</span></small>
+        <small>Last deployment: <span id="deploy-time">${new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" })}</span></small>
       </div>
     </div>
 
