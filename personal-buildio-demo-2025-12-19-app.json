@@ -1,0 +1,51 @@
+{
+  "name": "personal-buildio-demo",
+  "description": "",
+  "keywords": [
+    "build",
+    "build.io"
+  ],
+  "website": "https://small-sharp-tool.com/",
+  "repository": "git@github.com:stevenmulcahy123/build-demo-site.git",
+  "logo": "",
+  "success_url": "/",
+  "stack": "heroku-24",
+  "scripts": {
+    "postdeploy": ""
+  },
+  "env": {},
+  "formation": {
+    "web": {
+      "size": "Standard-1X",
+      "display": "node /workspace/server.js",
+      "quantity": 1
+    }
+  },
+  "image": "deprecated--see formation->type->image",
+  "addons": [],
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs-engine"
+    }
+  ],
+  "hosts": [],
+  "policy": {
+    "allow_websockets": true,
+    "response_timeout": 30,
+    "max_connections": 1024,
+    "temporary_self_signed": true,
+    "share_process_namespace": true,
+    "erosion_resistance_seconds": 0,
+    "waf": false,
+    "tls_passthrough": false,
+    "build_cache": null
+  },
+  "environments": {
+    "test": {
+      "scripts": {
+        "test": "echo 'Testing...'",
+        "test-setup": "echo 'Setting up test environment...'"
+      }
+    }
+  }
+}
