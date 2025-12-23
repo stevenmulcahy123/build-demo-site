@@ -179,7 +179,7 @@ const html = `<!DOCTYPE html>
     <p>
       If you can see this page, your Node.js deployment pipeline is working.
       This app is built from a Git repository using a Node buildpack.<br />
-      Great job Steven!
+      Awesome job you! 👍
     </p>
 
     <div class="status">
