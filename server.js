@@ -48,6 +48,25 @@ const html = `<!DOCTYPE html>
       --toggle-hover: #cbd5e1;
     }
 
+    /* Christmas theme - active on December 25th */
+    [data-theme="christmas"] {
+      --bg-primary: #1a472a;
+      --bg-card: #0f2818;
+      --text-primary: #fef3c7;
+      --text-secondary: #fcd34d;
+      --text-muted: #d4a84b;
+      --border-color: #b91c1c;
+      --badge-bg: #dc2626;
+      --badge-text: #fef2f2;
+      --code-bg: #0f2818;
+      --code-border: #166534;
+      --shadow-color: rgba(185, 28, 28, 0.4);
+      --success-color: #fbbf24;
+      --success-glow: rgba(251, 191, 36, 0.8);
+      --toggle-bg: #166534;
+      --toggle-hover: #15803d;
+    }
+
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       margin: 0;
@@ -170,6 +189,18 @@ const html = `<!DOCTYPE html>
     [data-theme="day"] .theme-toggle .moon-icon {
       display: none;
     }
+    .theme-toggle .christmas-icon {
+      display: none;
+    }
+    [data-theme="christmas"] .theme-toggle .sun-icon {
+      display: none;
+    }
+    [data-theme="christmas"] .theme-toggle .moon-icon {
+      display: none;
+    }
+    [data-theme="christmas"] .theme-toggle .christmas-icon {
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -204,6 +235,9 @@ const html = `<!DOCTYPE html>
     <svg class="moon-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
       <path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/>
     </svg>
+    <svg class="christmas-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2l3 6h-2l3 5h-2l3 6H7l3-6H8l3-5H9l3-6zm-1 19h2v2h-2v-2z"/>
+    </svg>
     <span class="toggle-label">Switch to Day</span>
   </button>
 
@@ -213,6 +247,12 @@ const html = `<!DOCTYPE html>
       const STORAGE_KEY = 'theme-preference';
       const DAY_START = 6;  // 6 AM
       const DAY_END = 18;   // 6 PM
+
+      // Determine if it's Christmas Day (December 25th) based on user's local time
+      function isChristmas() {
+        const now = new Date();
+        return now.getMonth() === 11 && now.getDate() === 25;
+      }
 
       // Determine if it's daytime based on user's local time
       function isDaytime() {
@@ -239,7 +279,10 @@ const html = `<!DOCTYPE html>
         const root = document.documentElement;
         const toggleLabel = document.querySelector('.toggle-label');
 
-        if (theme === 'day') {
+        if (theme === 'christmas') {
+          root.setAttribute('data-theme', 'christmas');
+          if (toggleLabel) toggleLabel.textContent = 'Merry Christmas!';
+        } else if (theme === 'day') {
           root.setAttribute('data-theme', 'day');
           if (toggleLabel) toggleLabel.textContent = 'Switch to Night';
         } else {
@@ -251,6 +294,10 @@ const html = `<!DOCTYPE html>
       // Get current effective theme
       function getCurrentTheme() {
         const pref = getThemePreference();
+        // Christmas theme takes priority on December 25th (auto mode only)
+        if (pref.mode === 'auto' && isChristmas()) {
+          return 'christmas';
+        }
         if (pref.mode === 'manual') {
           return pref.theme;
         }
@@ -287,7 +334,7 @@ const html = `<!DOCTYPE html>
       setInterval(function() {
         const pref = getThemePreference();
         if (pref.mode === 'auto') {
-          const theme = isDaytime() ? 'day' : 'night';
+          const theme = isChristmas() ? 'christmas' : (isDaytime() ? 'day' : 'night');
           applyTheme(theme);
         }
       }, 60000);
