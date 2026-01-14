@@ -140,6 +140,30 @@ const html = `<!DOCTYPE html>
       color: var(--text-muted);
       transition: color 0.3s ease;
     }
+    .location-display {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .location-icon {
+      display: inline-flex;
+      align-items: center;
+      opacity: 0.8;
+    }
+    .location-separator {
+      color: var(--text-muted);
+      opacity: 0.6;
+    }
+    #location-text {
+      transition: opacity 0.2s ease;
+    }
+    #location-text.updating {
+      opacity: 0.6;
+    }
+    .location-error {
+      color: var(--text-muted);
+      font-style: italic;
+    }
     code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       background: var(--code-bg);
@@ -217,7 +241,18 @@ const html = `<!DOCTYPE html>
       <div class="dot"></div>
       <div>
         <strong>Environment:</strong> <span>Production</span><br />
-        <small>Last deployment: <span id="deploy-time">${new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" })}</span></small>
+        <small>
+          <span id="current-time">${new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" })}</span>
+          <span class="location-separator"> | </span>
+          <span id="user-location" class="location-display">
+            <span class="location-icon">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+              </svg>
+            </span>
+            <span id="location-text">Fetching location...</span>
+          </span>
+        </small>
       </div>
     </div>
 
@@ -338,6 +373,129 @@ const html = `<!DOCTYPE html>
           applyTheme(theme);
         }
       }, 60000);
+    })();
+
+    // Location and time management
+    (function() {
+      const LOCATION_UPDATE_INTERVAL = 30000; // Update location every 30 seconds
+      const TIME_UPDATE_INTERVAL = 1000; // Update time every second
+      let watchId = null;
+
+      // Update the current time display
+      function updateTime() {
+        const timeEl = document.getElementById('current-time');
+        if (timeEl) {
+          timeEl.textContent = new Date().toLocaleString();
+        }
+      }
+
+      // Update location display with coordinates or city name
+      function updateLocationDisplay(text, isError) {
+        const locationText = document.getElementById('location-text');
+        if (locationText) {
+          locationText.classList.remove('updating');
+          locationText.textContent = text;
+          if (isError) {
+            locationText.classList.add('location-error');
+          } else {
+            locationText.classList.remove('location-error');
+          }
+        }
+      }
+
+      // Convert coordinates to readable location using reverse geocoding
+      function reverseGeocode(latitude, longitude) {
+        const locationText = document.getElementById('location-text');
+        if (locationText) {
+          locationText.classList.add('updating');
+        }
+
+        // Use OpenStreetMap's Nominatim for reverse geocoding (free, no API key required)
+        fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + latitude + '&lon=' + longitude + '&zoom=10')
+          .then(function(response) {
+            return response.json();
+          })
+          .then(function(data) {
+            if (data && data.address) {
+              var city = data.address.city || data.address.town || data.address.village || data.address.municipality || data.address.county;
+              var country = data.address.country_code ? data.address.country_code.toUpperCase() : '';
+              if (city) {
+                updateLocationDisplay(city + (country ? ', ' + country : ''), false);
+              } else {
+                // Fallback to coordinates if no city found
+                updateLocationDisplay(latitude.toFixed(2) + ', ' + longitude.toFixed(2), false);
+              }
+            } else {
+              updateLocationDisplay(latitude.toFixed(2) + ', ' + longitude.toFixed(2), false);
+            }
+          })
+          .catch(function() {
+            // If reverse geocoding fails, show coordinates
+            updateLocationDisplay(latitude.toFixed(2) + ', ' + longitude.toFixed(2), false);
+          });
+      }
+
+      // Handle successful geolocation
+      function handleLocationSuccess(position) {
+        var latitude = position.coords.latitude;
+        var longitude = position.coords.longitude;
+        reverseGeocode(latitude, longitude);
+      }
+
+      // Handle geolocation errors
+      function handleLocationError(error) {
+        var message = 'Location unavailable';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            message = 'Location access denied';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            message = 'Location unavailable';
+            break;
+          case error.TIMEOUT:
+            message = 'Location request timeout';
+            break;
+        }
+        updateLocationDisplay(message, true);
+      }
+
+      // Initialize location tracking
+      function initLocation() {
+        if ('geolocation' in navigator) {
+          // Get initial location
+          navigator.geolocation.getCurrentPosition(handleLocationSuccess, handleLocationError, {
+            enableHighAccuracy: false,
+            timeout: 10000,
+            maximumAge: 60000
+          });
+
+          // Watch for location changes (real-time updates)
+          watchId = navigator.geolocation.watchPosition(handleLocationSuccess, handleLocationError, {
+            enableHighAccuracy: false,
+            timeout: 10000,
+            maximumAge: 30000
+          });
+        } else {
+          updateLocationDisplay('Geolocation not supported', true);
+        }
+      }
+
+      // Initialize when DOM is ready
+      document.addEventListener('DOMContentLoaded', function() {
+        // Start time updates
+        updateTime();
+        setInterval(updateTime, TIME_UPDATE_INTERVAL);
+
+        // Initialize location tracking
+        initLocation();
+      });
+
+      // Cleanup on page unload
+      window.addEventListener('beforeunload', function() {
+        if (watchId !== null) {
+          navigator.geolocation.clearWatch(watchId);
+        }
+      });
     })();
   </script>
 </body>
