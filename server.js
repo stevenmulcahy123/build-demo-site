@@ -1,6 +1,46 @@
 const http = require("http");
+const cluster = require("cluster");
+const os = require("os");
+const zlib = require("zlib");
 
 const port = process.env.PORT || 3000;
+const numCPUs = os.cpus().length;
+
+// Performance metrics tracking
+const metrics = {
+  requestCount: 0,
+  totalResponseTime: 0,
+  startTime: Date.now(),
+  errors: 0
+};
+
+// Cluster mode for multi-core utilization
+if (cluster.isPrimary) {
+  console.log(`Primary process ${process.pid} starting...`);
+  console.log(`Forking ${numCPUs} worker processes for high traffic handling`);
+
+  // Fork workers for each CPU core
+  for (let i = 0; i < numCPUs; i++) {
+    cluster.fork();
+  }
+
+  // Handle worker crashes - restart immediately
+  cluster.on("exit", (worker, code, signal) => {
+    console.log(`Worker ${worker.process.pid} died (${signal || code}). Restarting...`);
+    cluster.fork();
+  });
+
+  // Graceful shutdown handling
+  process.on("SIGTERM", () => {
+    console.log("SIGTERM received, shutting down gracefully...");
+    for (const id in cluster.workers) {
+      cluster.workers[id].kill("SIGTERM");
+    }
+    process.exit(0);
+  });
+
+} else {
+  // Worker process - handle requests
 
 const html = `<!DOCTYPE html>
 <html lang="en">
@@ -344,12 +384,111 @@ const html = `<!DOCTYPE html>
 </html>
 `;
 
+// Pre-compress HTML for performance (gzip)
+const compressedHtml = zlib.gzipSync(Buffer.from(html, "utf-8"));
+const htmlBuffer = Buffer.from(html, "utf-8");
+
 const server = http.createServer((req, res) => {
+  const startTime = process.hrtime.bigint();
+
+  // Health check endpoint for load balancers and monitoring
+  if (req.url === "/health") {
+    const uptime = Date.now() - metrics.startTime;
+    const avgResponseTime = metrics.requestCount > 0
+      ? (metrics.totalResponseTime / metrics.requestCount).toFixed(2)
+      : 0;
+
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.end(JSON.stringify({
+      status: "healthy",
+      worker: process.pid,
+      uptime_ms: uptime,
+      requests_handled: metrics.requestCount,
+      avg_response_time_ms: avgResponseTime,
+      errors: metrics.errors
+    }));
+    return;
+  }
+
+  // Metrics endpoint for monitoring
+  if (req.url === "/metrics") {
+    const uptime = Date.now() - metrics.startTime;
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "text/plain");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.end(`# HELP http_requests_total Total HTTP requests handled
+# TYPE http_requests_total counter
+http_requests_total{worker="${process.pid}"} ${metrics.requestCount}
+
+# HELP http_response_time_avg_ms Average response time in milliseconds
+# TYPE http_response_time_avg_ms gauge
+http_response_time_avg_ms{worker="${process.pid}"} ${metrics.requestCount > 0 ? (metrics.totalResponseTime / metrics.requestCount).toFixed(2) : 0}
+
+# HELP process_uptime_ms Process uptime in milliseconds
+# TYPE process_uptime_ms gauge
+process_uptime_ms{worker="${process.pid}"} ${uptime}
+
+# HELP http_errors_total Total HTTP errors
+# TYPE http_errors_total counter
+http_errors_total{worker="${process.pid}"} ${metrics.errors}
+`);
+    return;
+  }
+
+  // Main application response with performance optimizations
+  metrics.requestCount++;
+
   res.statusCode = 200;
   res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.end(html);
+
+  // Cache control headers for CDN and browser caching
+  res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=600");
+  res.setHeader("ETag", `"${htmlBuffer.length}-v1"`);
+
+  // Security headers
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+
+  // Check if client accepts gzip compression
+  const acceptEncoding = req.headers["accept-encoding"] || "";
+  if (acceptEncoding.includes("gzip")) {
+    res.setHeader("Content-Encoding", "gzip");
+    res.setHeader("Content-Length", compressedHtml.length);
+    res.end(compressedHtml);
+  } else {
+    res.setHeader("Content-Length", htmlBuffer.length);
+    res.end(htmlBuffer);
+  }
+
+  // Track response time
+  const endTime = process.hrtime.bigint();
+  const responseTimeMs = Number(endTime - startTime) / 1_000_000;
+  metrics.totalResponseTime += responseTimeMs;
+});
+
+// Optimize server for high concurrency
+server.keepAliveTimeout = 65000; // Slightly higher than typical load balancer timeout
+server.headersTimeout = 66000;
+server.maxConnections = 0; // Unlimited (handled at platform level)
+
+server.on("error", (err) => {
+  console.error(`Server error: ${err.message}`);
+  metrics.errors++;
 });
 
 server.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
+  console.log(`Worker ${process.pid} listening on port ${port}`);
 });
+
+// Graceful shutdown for individual worker
+process.on("SIGTERM", () => {
+  console.log(`Worker ${process.pid} shutting down...`);
+  server.close(() => {
+    console.log(`Worker ${process.pid} closed all connections`);
+    process.exit(0);
+  });
+});
+
+} // End of worker process block
