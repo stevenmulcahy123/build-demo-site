@@ -1,10 +1,15 @@
 {
   "name": "buildio-node-demo",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Simple Node demo app for Build.io deployment walkthrough",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "loadtest": "node loadtest.js",
+    "loadtest:quick": "node loadtest.js --duration 30 --concurrency 50 --rps 500",
+    "loadtest:100x": "node loadtest.js --duration 120 --concurrency 500 --rps 10000",
+    "health": "curl -s http://localhost:3000/health | node -e \"process.stdin.pipe(process.stdout)\"",
+    "metrics": "curl -s http://localhost:3000/metrics"
   },
   "engines": {
     "node": ">=18"

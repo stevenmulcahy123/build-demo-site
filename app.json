@@ -16,9 +16,15 @@
   "env": {},
   "formation": {
     "web": {
-      "size": "Standard-1X",
+      "size": "Performance-L",
       "display": "node /workspace/server.js",
-      "quantity": 1
+      "quantity": 10,
+      "autoscaling": {
+        "enabled": true,
+        "min_quantity": 5,
+        "max_quantity": 50,
+        "target_p95_response_time": 500
+      }
     }
   },
   "image": "deprecated--see formation->type->image",
@@ -31,8 +37,8 @@
   "hosts": [],
   "policy": {
     "allow_websockets": true,
-    "response_timeout": 30,
-    "max_connections": 1024,
+    "response_timeout": 60,
+    "max_connections": 10240,
     "temporary_self_signed": true,
     "share_process_namespace": true,
     "erosion_resistance_seconds": 0,
